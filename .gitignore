@@ -33,3 +33,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+working mock
+TextToSpeechApp.jsx
+~/Library/Android/sdk
+abc
