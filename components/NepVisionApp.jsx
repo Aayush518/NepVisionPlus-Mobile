@@ -42,6 +42,7 @@ import NepaliFlag from './decorative/NepaliFlag';
 import NepaliBorder from './decorative/NepaliBorder';
 import NepaliPattern from './decorative/NepaliPattern';
 import MandalaBackground from './decorative/MandalaBackground';
+import FrameCaptionView from './frames/FrameCaptionView';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const API_URL = "https://6920-34-142-255-107.ngrok-free.app/process_video";
@@ -707,45 +708,57 @@ const NepVisionApp = () => {
                 
                 {/* Vertical list of frames with captions */}
                 {frames.map((frame, index) => (
-                  <Pressable
-                    key={frame.id}
-                    style={styles.frameCard}
-                    onPress={() => {
-                      setSelectedFrame(frame);
-                      setIsFrameModalVisible(true);
-                    }}
-                    android_ripple={{ color: 'rgba(99, 102, 241, 0.2)' }}
-                  >
-                    <LinearGradient
-                      colors={['rgba(30, 41, 59, 0.8)', 'rgba(15, 23, 42, 0.8)']}
-                      style={styles.frameCardGradient}
+                  <View key={frame.id}>
+                    <Pressable
+                      style={styles.frameCard}
+                      onPress={() => {
+                        setSelectedFrame(frame.id === selectedFrame ? null : frame.id);
+                      }}
+                      android_ripple={{ color: 'rgba(99, 102, 241, 0.2)' }}
                     >
-                      <View style={styles.frameCardContent}>
-                        {/* Frame thumbnail */}
-                        <View style={styles.frameThumbnailContainer}>
-                          {frame.uri ? (
+                      <LinearGradient
+                        colors={['rgba(30, 41, 59, 0.8)', 'rgba(15, 23, 42, 0.8)']}
+                        style={styles.frameCardGradient}
+                      >
+                        <View style={styles.frameCardContent}>
+                          {/* Frame thumbnail */}
+                          <View style={styles.frameThumbnailContainer}>
                             <Image
                               source={{ uri: frame.uri }}
                               style={styles.frameThumbnail}
                               resizeMode="cover"
                             />
-                          ) : (
-                            <View style={[styles.frameThumbnail, styles.thumbnailPlaceholder]}>
-                              <MaterialIcons name="image" size={32} color="#4F46E5" />
+                            <View style={styles.timestampBadge}>
+                              <Text style={styles.timestampText}>{frame.timestamp}s</Text>
                             </View>
-                          )}
-                          <View style={styles.timestampBadge}>
-                            <Text style={styles.timestampText}>{frame.timestamp}s</Text>
+                          </View>
+
+                          {/* Caption Preview */}
+                          <View style={styles.captionContainer}>
+                            <Text 
+                              style={styles.captionText}
+                              numberOfLines={selectedFrame === frame.id ? undefined : 2}
+                            >
+                              {frame.caption}
+                            </Text>
+                            <MaterialIcons 
+                              name={selectedFrame === frame.id ? "expand-less" : "expand-more"} 
+                              size={24} 
+                              color={colors.textSecondary} 
+                            />
                           </View>
                         </View>
-
-                        {/* Caption */}
-                        <View style={styles.captionContainer}>
-                          <Text style={styles.captionText}>{frame.caption}</Text>
-                        </View>
-                      </View>
-                    </LinearGradient>
-                  </Pressable>
+                      </LinearGradient>
+                    </Pressable>
+                    
+                    {/* Expanded Caption View */}
+                    {selectedFrame === frame.id && (
+                      <FrameCaptionView 
+                        frame={frame}
+                        onClose={() => setSelectedFrame(null)}
+                      />
+                    )}
+                  </View>
                 ))}
               </View>
             )}
