@@ -29,6 +29,19 @@ import { Shadow } from 'react-native-shadow-2';
 import { MotiView } from 'moti';
 import { Easing } from 'react-native-reanimated';
 import { Audio } from 'expo-av';
+import { Feature } from './features';
+import { FrameThumbnail } from './frames';
+import { FramePreviewModal } from './modals';
+import { ProcessingOverlay } from './overlays';
+import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { generateVideoThumbnails, preprocessVideo } from '../utils/videoProcessing';
+import { MOCK_DATA } from '../constants/mockData';
+import styles from '../styles/components/nepVisionApp.styles';
+import { colors, gradients } from '../styles/theme';
+import NepaliFlag from './decorative/NepaliFlag';
+import NepaliBorder from './decorative/NepaliBorder';
+import NepaliPattern from './decorative/NepaliPattern';
+import MandalaBackground from './decorative/MandalaBackground';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const API_URL = "https://6920-34-142-255-107.ngrok-free.app/process_video";
@@ -43,179 +56,6 @@ const FALLBACK_CAPTIONS = [
 ];
 
 const FALLBACK_SUMMARY = "यो भिडियोमा विभिन्न दैनिक गतिविधिहरू देखाइएको छ । यसमा मानिसहरूको दैनिक जीवन, शिक्षा, खेलकुद र कला सम्बन्धी क्रियाकलापहरू समावेश छन् ।";
-
-// Update the mock data to not require image files
-const MOCK_DATA = {
-  frames: [
-    {
-      id: 'frame-0',
-      timestamp: 1,
-      caption: "एक व्यक्ति बगैंचामा बसेर किताब पढ्दै गरेको दृश्य",
-    },
-    {
-      id: 'frame-1',
-      timestamp: 2,
-      caption: "साथीहरू मिलेर खेलमैदानमा फुटबल खेल्दै गरेको दृश्य",
-    },
-    {
-      id: 'frame-2',
-      timestamp: 3,
-      caption: "परिवारका सदस्यहरू मिलेर खाना खाँदै गरेको दृश्य",
-    },
-    {
-      id: 'frame-3',
-      timestamp: 4,
-      caption: "विद्यार्थीहरू कक्षाकोठामा पढ्दै गरेको दृश्य",
-    },
-    {
-      id: 'frame-4',
-      timestamp: 5,
-      caption: "एक कलाकार चित्र बनाउँदै गरेको मनमोहक दृश्य",
-    }
-  ],
-  summary: "यो भिडियोमा विभिन्न दैनिक गतिविधिहरू देखाइएको छ । यसमा मानिसहरूको दैनिक जीवन, शिक्षा, खेलकुद र कला सम्बन्धी क्रियाकलापहरू समावेश छन् । सुरुमा एक व्यक्ति शान्त वातावरणमा अध्ययन गर्दै गरेको देखिन्छ । त्यसपछि युवाहरू खेलकुदमा व्यस्त छन् । परिवारिक भोजनको दृश्यले नेपाली संस्कृतिको झलक दिन्छ । विद्यालयको दृश्यले शिक्षाको महत्व दर्शाउँछ । अन्त्यमा कलात्मक गतिविधिले सिर्जनात्मकताको प्रतिनिधित्व गर्छ ।"
-};
-
-// Feature Component - Move this before NepVisionApp
-const Feature = ({ icon, title, description }) => (
-  <MotiView
-    from={{ opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
-    transition={{ type: 'spring', delay: Math.random() * 500 }}
-    style={styles.featureCard}
-  >
-    <LinearGradient
-      colors={['rgba(99, 102, 241, 0.1)', 'rgba(79, 70, 229, 0.1)']}
-      style={StyleSheet.absoluteFill}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    />
-    <View style={styles.featureIconContainer}>
-      <MaterialIcons name={icon} size={32} color="#818CF8" />
-    </View>
-    <Text style={styles.featureTitle}>{title}</Text>
-    <Text style={styles.featureDescription}>{description}</Text>
-  </MotiView>
-);
-
-// Component for individual frame thumbnails
-const FrameThumbnail = ({ frame, onPress }) => (
-  <Pressable
-    style={styles.frameItem}
-    onPress={() => onPress(frame)}
-    android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-  >
-    <Image
-      source={{ uri: frame.uri }}
-      style={styles.frameThumbnail}
-      resizeMode="cover"
-    />
-    <View style={styles.frameOverlay}>
-      <Text style={styles.frameTimestamp}>{frame.timestamp}s</Text>
-    </View>
-  </Pressable>
-);
-
-// Frame preview modal component
-const FramePreviewModal = ({ isVisible, frame, frames, onClose, onNavigate }) => {
-  const currentIndex = frames.findIndex((f) => f?.id === frame?.id);
-
-  if (!isVisible || !frame) return null;
-
-  return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
-      <View style={styles.modalRoot}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderText}>Frame Preview</Text>
-              <Pressable 
-                style={styles.closeButton} 
-                onPress={onClose}
-                hitSlop={20}
-              >
-                <MaterialIcons name="close" size={24} color="#FFFFFF" />
-              </Pressable>
-            </View>
-
-            <View style={styles.modalImageContainer}>
-              {frame.uri ? (
-                <Image
-                  source={{ uri: frame.uri }}
-                  style={styles.modalImage}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View style={[styles.modalImage, styles.modalImagePlaceholder]}>
-                  <MaterialIcons name="image" size={48} color="#4F46E5" />
-                  <Text style={styles.placeholderText}>No preview available</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.modalCaptionContainer}>
-              <Text style={styles.modalTimestamp}>
-                समय: {frame.timestamp} सेकेन्ड
-              </Text>
-              <Text style={styles.modalCaption}>{frame.caption}</Text>
-            </View>
-
-            <View style={styles.modalNavigation}>
-              <Pressable 
-                style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
-                onPress={() => currentIndex > 0 && onNavigate(frames[currentIndex - 1])}
-                disabled={currentIndex === 0}
-              >
-                <MaterialIcons name="chevron-left" size={30} color="#FFFFFF" />
-              </Pressable>
-              <Pressable 
-                style={[styles.navButton, currentIndex === frames.length - 1 && styles.navButtonDisabled]}
-                onPress={() => currentIndex < frames.length - 1 && onNavigate(frames[currentIndex + 1])}
-                disabled={currentIndex === frames.length - 1}
-              >
-                <MaterialIcons name="chevron-right" size={30} color="#FFFFFF" />
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-// Update the processing overlay to be dismissible and not block interactions when done
-const ProcessingOverlay = ({ isVisible, progress }) => {
-  if (!isVisible) return null;
-  
-  return (
-    <View style={styles.processingOverlayContainer}>
-      <BlurView intensity={20} tint="dark" style={styles.processingOverlay}>
-        <View style={styles.processingContent}>
-          <ActivityIndicator size="large" color="#6366F1" />
-          <Text style={styles.processingText}>
-            Processing Video ({progress}%)
-          </Text>
-          <View style={styles.progressBarContainer}>
-            <View style={styles.progressBar}>
-              <LinearGradient
-                colors={['#4F46E5', '#6366F1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.progressFill, { width: `${progress}%` }]}
-              />
-            </View>
-          </View>
-        </View>
-      </BlurView>
-    </View>
-  );
-};
 
 const NepVisionApp = () => {
   const insets = useSafeAreaInsets();
@@ -695,19 +535,19 @@ const NepVisionApp = () => {
 
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="light" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+      
       <LinearGradient
-        colors={['#0F172A', '#1E293B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        colors={gradients.background}
         style={styles.gradient}
       >
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          <View style={styles.content}>
             {/* Header Section */}
             <MotiView
               from={{ opacity: 0, scale: 0.9, translateY: 20 }}
@@ -723,29 +563,31 @@ const NepVisionApp = () => {
               }}
               style={styles.header}
             >
+              <NepaliPattern />
+              <MandalaBackground />
               <LinearGradient
-                colors={['rgba(99, 102, 241, 0.2)', 'rgba(79, 70, 229, 0.2)']}
+                colors={[colors.backgroundAccent, 'rgba(220, 38, 38, 0.15)']}
                 style={styles.headerGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-              />
-              <View style={styles.headerContent}>
-                <View style={styles.headerAnimation}>
-                  <MaterialIcons 
-                    name="psychology" 
-                    size={80} 
-                    color="#6366F1"
-                    style={styles.brainIcon}
-                  />
+              >
+                <View style={styles.headerContent}>
+                  <View style={styles.flagContainer}>
+                    <NepaliFlag size={80} />
+                  </View>
+                  <NepaliBorder style={styles.titleBorder}>
+                    <View style={styles.titleContainer}>
+                      <Text style={styles.titleMain}>NepVision</Text>
+                      <Text style={styles.titlePlus}>Plus</Text>
+                      <Text style={styles.subtitle}>AI Video Analysis</Text>
+                    </View>
+                  </NepaliBorder>
+                  <Text style={styles.description}>
+                    Transform your videos into detailed Nepali descriptions with advanced AI technology
+                  </Text>
+                  <View style={styles.decorativeLine} />
                 </View>
-                <View style={styles.titleContainer}>
-                  <Text style={styles.title}>NepVision</Text>
-                  <Text style={styles.subtitle}>AI Video Analysis & Description</Text>
-                </View>
-                <Text style={styles.description}>
-                  Transform your videos into detailed Nepali descriptions with advanced AI technology
-                </Text>
-              </View>
+              </LinearGradient>
             </MotiView>
 
             {/* Features Section */}
@@ -940,7 +782,7 @@ const NepVisionApp = () => {
                 </View>
               </View>
             )}
-          </Animated.View>
+          </View>
         </ScrollView>
 
         {/* Processing Overlay */}
@@ -961,429 +803,5 @@ const NepVisionApp = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  gradient: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 32,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    position: 'relative',
-    marginBottom: 32,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  headerGradient: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.8,
-  },
-  headerContent: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  headerAnimation: {
-    width: 140,
-    height: 140,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    borderRadius: 70,
-    borderWidth: 2,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
-    marginBottom: 16,
-  },
-  titleContainer: {
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#fff',
-    textShadowColor: 'rgba(99, 102, 241, 0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#A5B4FC',
-    marginTop: 8,
-    letterSpacing: 0.5,
-  },
-  description: {
-    fontSize: 16,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 16,
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    maxWidth: '80%',
-  },
-  featuresContainer: {
-    marginBottom: 32,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 12,
-  },
-  featureCard: {
-    flex: 1,
-    margin: 8,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-    overflow: 'hidden',
-  },
-  featureIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 14,
-    color: '#94A3B8',
-    lineHeight: 20,
-  },
-  uploadContainer: {
-    position: 'relative',
-    marginBottom: 32,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  uploadGradient: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.8,
-  },
-  uploadButton: {
-    padding: 32,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  uploadButtonGradient: {
-    borderRadius: 24,
-  },
-  uploadButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  uploadContent: {
-    alignItems: 'center',
-  },
-  uploadIcon: {
-    marginBottom: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  uploadButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  uploadSubtext: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 15,
-    marginTop: 8,
-    letterSpacing: 0.3,
-  },
-  processingOverlayContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  processingOverlay: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  processingContent: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    padding: 24,
-    borderRadius: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-    maxWidth: '80%',
-  },
-  processingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#E2E8F0',
-    letterSpacing: 0.5,
-  },
-  progressBarContainer: {
-    marginTop: 16,
-    width: 240,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  videoWrapper: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  video: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-  },
-  framesSection: {
-    marginBottom: 32,
-    paddingHorizontal: 16,
-  },
-  frameCard: {
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  frameCardGradient: {
-    padding: 16,
-  },
-  frameCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  frameThumbnailContainer: {
-    position: 'relative',
-    width: 160,
-    height: 90,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  frameThumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  timestampBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(99, 102, 241, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  timestampText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  captionContainer: {
-    flex: 1,
-  },
-  captionText: {
-    color: '#E2E8F0',
-    fontSize: 15,
-    lineHeight: 22,
-    letterSpacing: 0.3,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    marginBottom: 20,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  summarySection: {
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
-  summaryCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-    borderRadius: 16,
-    padding: 20,
-  },
-  summaryText: {
-    fontSize: 16,
-    color: '#E2E8F0',
-    lineHeight: 24,
-    letterSpacing: 0.3,
-  },
-  audioControlsContainer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  playButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
-    overflow: 'hidden',
-  },
-  modalRoot: {
-    flex: 1,
-    backgroundColor: 'rgba(4, 11, 33, 0.95)',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxHeight: '90%',
-    backgroundColor: '#1E293B',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  modalHeaderText: {
-    color: '#E2E8F0',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  modalImageContainer: {
-    width: '100%',
-    height: 300,
-    backgroundColor: '#0F172A',
-  },
-  modalImage: {
-    width: '100%',
-    height: '100%',
-  },
-  modalCaptionContainer: {
-    padding: 20,
-    backgroundColor: '#1E293B',
-  },
-  modalTimestamp: {
-    color: '#A5B4FC',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  modalCaption: {
-    color: '#E0E7FF',
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  modalNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: '#1E293B',
-  },
-  navButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(99, 102, 241, 0.3)',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.4)',
-  },
-  navButtonDisabled: {
-    opacity: 0.3,
-  },
-  closeButton: {
-    padding: 8,
-  },
-  brainIcon: {
-    textShadowColor: 'rgba(99, 102, 241, 0.5)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 8,
-  },
-  modalImagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-  },
-  placeholderText: {
-    color: '#6366F1',
-    fontSize: 16,
-    marginTop: 12,
-    fontWeight: '500',
-  },
-  thumbnailPlaceholder: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoSection: {
-    marginBottom: 32,
-  },
-  videoWrapper: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  video: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-  },
-});
 
 export default NepVisionApp;
