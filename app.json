@@ -3,15 +3,18 @@
     "name": "text-to-speech-app",
     "slug": "text-to-speech-app",
     "version": "1.0.0",
+    "newArchEnabled": true,
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
-      "assets": ["./assets/loading.json"]
+      "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -38,25 +41,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app needs access to your photos to let you select videos.",
-          "savePhotosPermission": "The app needs access to save processed videos.",
-          "cameraPermission": "The app needs access to your camera.",
-          "isAccessMediaLocationEnabled": true
-
-        }
-      ],
+      "expo-document-picker",
       [
         "expo-av",
         {
           "microphonePermission": "The app needs access to your microphone for audio playback."
         }
       ]
-    ],
-    "assetBundlePatterns": [
-      "**/*"
     ],
     "extra": {
       "eas": {
